@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EAW Einsatzplan</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d3b78">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="EAW Plan">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { padding-top: env(safe-area-inset-top); box-sizing: border-box; }
+  #app { display: block; width: 100%; height: 100%; border: 0; }
+  .voll { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+          background: #fff; color: #0d3b78; text-align: center; padding: 24px; box-sizing: border-box; }
+  .voll img { width: 132px; height: 132px; border-radius: 26px; box-shadow: 0 4px 18px rgba(13,59,120,.18); }
+  .voll b { font-size: 19px; }
+  .voll small { color: #5b6b80; font-size: 14px; max-width: 300px; line-height: 1.4; }
+  .spin { width: 26px; height: 26px; border: 3px solid #d7e2f3; border-top-color: #0d3b78; border-radius: 50%; animation: d .9s linear infinite; }
+  @keyframes d { to { transform: rotate(360deg); } }
+  button { font: inherit; font-weight: 700; color: #fff; background: #0d3b78; border: 0; border-radius: 12px; padding: 13px 22px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<iframe id="app" title="EAW Einsatzplan" allow="camera; microphone; geolocation; clipboard-write; fullscreen"></iframe>
+
+<div id="lade" class="voll">
+  <img src="icon-192.png" alt="">
+  <b>EAW Einsatzplan</b>
+  <div class="spin"></div>
+  <small id="lade-txt">Wird geladen …</small>
+</div>
+
+<div id="off" class="voll" hidden>
+  <img src="icon-192.png" alt="">
+  <b>📶 Keine Internetverbindung</b>
+  <small>Der Einsatzplan braucht Internet. Bitte WLAN oder mobile Daten prüfen.<br>Deine Eingaben sind gespeichert und gehen nicht verloren.</small>
+  <button id="nochmal">Erneut versuchen</button>
+</div>
+
+<script>
+  /* Adresse der EAW-App bei Google (unverändert) */
+  var APP_URL = "https://script.google.com/macros/s/AKfycbzUN6TteLP_DqxoJ6jON1z-CLTc_6mGArTe5qGJNW3LNHOrITIyouCJ_JFV9sDHvOLX3w/exec";
+  var app = document.getElementById("app"), lade = document.getElementById("lade"), off = document.getElementById("off"), geladen = false, zeit = null;
+
+  function zeige(el) { lade.hidden = el !== lade; off.hidden = el !== off; }
+  function starten() {
+    if (!navigator.onLine) { zeige(off); return; }
+    geladen = false; zeige(lade);
+    document.getElementById("lade-txt").textContent = "Wird geladen …";
+    app.src = APP_URL + (APP_URL.indexOf("?") < 0 ? "?" : "&") + "pwa=1";
+    clearTimeout(zeit);
+    zeit = setTimeout(function () { if (!geladen) document.getElementById("lade-txt").textContent = "Das dauert gerade länger … bitte kurz warten."; }, 12000);
+  }
+  app.addEventListener("load", function () { if (!app.src) return; geladen = true; clearTimeout(zeit); zeige(null); });
+  window.addEventListener("offline", function () { if (!geladen) zeige(off); });
+  window.addEventListener("online", function () { if (!geladen) starten(); });
+  document.getElementById("nochmal").addEventListener("click", starten);
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  }
+  starten();
+</script>
+</body>
+</html>
