@@ -1,6 +1,6 @@
 /* EAW Einsatzplan – Offline-Helfer: hält die Startseite und die Symbole bereit.
    Die eigentliche App kommt immer frisch von Google (wird hier nicht zwischengespeichert). */
-var CACHE = "eaw-app-v1";
+var CACHE = "eaw-app-v2";
 var DATEIEN = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png", "icon-512-maskable.png"];
 
 self.addEventListener("install", function (e) {
