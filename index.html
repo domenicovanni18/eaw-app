@@ -25,6 +25,13 @@
   @keyframes d { to { transform: rotate(360deg); } }
   button { font: inherit; font-weight: 700; color: #fff; background: #0d3b78; border: 0; border-radius: 12px; padding: 13px 22px; }
   [hidden] { display: none !important; }
+  #plan { position: fixed; inset: 0; overflow-y: auto; background: #f3f6fa; color: #14243a; padding: calc(env(safe-area-inset-top) + 12px) 14px 30px; box-sizing: border-box; }
+  #plan h1 { font-size: 20px; margin: 4px 0; color: #0d3b78; } #plan .st { font-size: 13px; color: #5b6b80; margin-bottom: 10px; }
+  #plan .tag { font-weight: 800; margin: 16px 0 6px; color: #0d3b78; } #plan .heute { background: #ffd54a; color: #3a2c00; font-size: 11px; padding: 1px 6px; border-radius: 6px; margin-left: 6px; }
+  #plan .job { background: #fff; border: 1px solid #dfe6ef; border-radius: 12px; padding: 10px 12px; margin: 6px 0; }
+  #plan .zt { font-weight: 800; } #plan .t { font-weight: 700; margin-top: 2px; } #plan .k { font-size: 13px; color: #5b6b80; margin-top: 2px; white-space: pre-wrap; }
+  #plan .leiste { display: flex; gap: 8px; margin-top: 18px; } #plan .leiste button { flex: 1; }
+  .ghost { background: #e6edf7; color: #0d3b78; }
 </style>
 </head>
 <body>
@@ -42,14 +49,42 @@
   <b>📶 Keine Internetverbindung</b>
   <small>Der Einsatzplan braucht Internet. Bitte WLAN oder mobile Daten prüfen.<br>Deine Eingaben sind gespeichert und gehen nicht verloren.</small>
   <button id="nochmal">Erneut versuchen</button>
+  <button id="zeigplan" class="ghost" hidden>📅 Meinen gespeicherten Plan ansehen</button>
 </div>
+<div id="plan" hidden></div>
 
 <script>
   /* Adresse der EAW-App bei Google (unverändert) */
   var APP_URL = "https://script.google.com/macros/s/AKfycbzUN6TteLP_DqxoJ6jON1z-CLTc_6mGArTe5qGJNW3LNHOrITIyouCJ_JFV9sDHvOLX3w/exec";
   var app = document.getElementById("app"), lade = document.getElementById("lade"), off = document.getElementById("off"), geladen = false, zeit = null;
 
-  function zeige(el) { lade.hidden = el !== lade; off.hidden = el !== off; }
+  var planEl = document.getElementById("plan"), zp = document.getElementById("zeigplan");
+  function zeige(el) { lade.hidden = el !== lade; off.hidden = el !== off; planEl.hidden = el !== planEl; if (el === off) zp.hidden = !gespeichert(); }
+  /* Offline-Ansicht: die App schickt den eigenen Plan (diese + nächste Woche) hierher */
+  var APP_ORIGIN_OK = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|google\.com)$/;
+  function gespeichert() { try { var d = JSON.parse(localStorage.getItem("eaw-offline-plan") || "null"); return d && d.weeks ? d : null; } catch (e) { return null; } }
+  window.addEventListener("message", function (e) {
+    if (!APP_ORIGIN_OK.test(e.origin) || !e.data || typeof e.data !== "object") return;
+    try { if (e.data.eaw === "plan" && e.data.weeks) localStorage.setItem("eaw-offline-plan", JSON.stringify({ n: e.data.n, stand: e.data.stand, weeks: e.data.weeks, at: Date.now() }));
+      else if (e.data.eaw === "logout") localStorage.removeItem("eaw-offline-plan"); } catch (err) {}
+  });
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function zeigePlan() {
+    var d = gespeichert(); if (!d) return;
+    var WT = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"], heute = new Date(), h0 = heute.getFullYear() + "-" + ("0" + (heute.getMonth() + 1)).slice(-2) + "-" + ("0" + heute.getDate()).slice(-2);
+    var alle = []; Object.keys(d.weeks).sort().forEach(function (w) { (d.weeks[w] || []).forEach(function (g) { alle.push(g); }); });
+    alle.sort(function (a, b) { return (a.d + (a.von || "")).localeCompare(b.d + (b.von || "")); });
+    var h = "<h1>📅 Mein Plan (offline)</h1><div class=\"st\">" + esc(d.n) + " · Stand " + esc(d.stand || "") + "<br>Ohne Internet – Änderungen siehst du erst wieder mit Netz.</div>", tag = "";
+    alle.forEach(function (g) { if (g.d < h0) return;
+      if (g.d !== tag) { tag = g.d; var p = g.d.split("-"), dt = new Date(+p[0], +p[1] - 1, +p[2]); h += "<div class=\"tag\">" + WT[dt.getDay()] + ", " + p[2] + "." + p[1] + "." + (g.d === h0 ? "<span class=\"heute\">HEUTE</span>" : "") + "</div>"; }
+      h += "<div class=\"job\"><div class=\"zt\">" + (g.von ? esc(g.von) + "–" + esc(g.bis) : "ganztägig") + "</div><div class=\"t\">" + esc(g.t) + "</div>" + (g.o ? "<div class=\"k\">📍 " + esc(g.o) + "</div>" : "") +
+        (g.mit && g.mit.length ? "<div class=\"k\">👥 " + esc(g.mit.join(", ")) + "</div>" : "") + (g.h ? "<div class=\"k\">ℹ️ " + esc(g.h) + "</div>" : "") + "</div>"; });
+    if (!alle.some(function (g) { return g.d >= h0; })) h += "<div class=\"job\">Keine gespeicherten Termine ab heute.</div>";
+    h += "<div class=\"leiste\"><button id=\"p-neu\">🔄 Mit Internet neu laden</button></div>";
+    planEl.innerHTML = h; zeige(planEl);
+    document.getElementById("p-neu").onclick = starten;
+  }
+  zp.addEventListener("click", zeigePlan);
   function starten() {
     if (!navigator.onLine) { zeige(off); return; }
     geladen = false; zeige(lade);
