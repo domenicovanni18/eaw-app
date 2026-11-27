@@ -42,6 +42,7 @@
   <b>EAW Einsatzplan</b>
   <div class="spin"></div>
   <small id="lade-txt">Wird geladen …</small>
+  <button id="lade-plan" class="ghost" hidden>📅 Meinen gespeicherten Plan schon ansehen</button>
 </div>
 
 <div id="off" class="voll" hidden>
@@ -74,26 +75,37 @@
     var WT = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"], heute = new Date(), h0 = heute.getFullYear() + "-" + ("0" + (heute.getMonth() + 1)).slice(-2) + "-" + ("0" + heute.getDate()).slice(-2);
     var alle = []; Object.keys(d.weeks).sort().forEach(function (w) { (d.weeks[w] || []).forEach(function (g) { alle.push(g); }); });
     alle.sort(function (a, b) { return (a.d + (a.von || "")).localeCompare(b.d + (b.von || "")); });
-    var h = "<h1>📅 Mein Plan (offline)</h1><div class=\"st\">" + esc(d.n) + " · Stand " + esc(d.stand || "") + "<br>Ohne Internet – Änderungen siehst du erst wieder mit Netz.</div>", tag = "";
+    var on = navigator.onLine && !!app.src;
+    var h = "<h1>📅 Mein Plan " + (on ? "(gespeichert)" : "(offline)") + "</h1><div class=\"st\">" + esc(d.n) + " · Stand " + esc(d.stand || "") + "<br>" + (on ? "Die App lädt im Hintergrund – Änderungen siehst du dort." : "Ohne Internet – Änderungen siehst du erst wieder mit Netz.") + "</div>", tag = "";
     alle.forEach(function (g) { if (g.d < h0) return;
       if (g.d !== tag) { tag = g.d; var p = g.d.split("-"), dt = new Date(+p[0], +p[1] - 1, +p[2]); h += "<div class=\"tag\">" + WT[dt.getDay()] + ", " + p[2] + "." + p[1] + "." + (g.d === h0 ? "<span class=\"heute\">HEUTE</span>" : "") + "</div>"; }
       h += "<div class=\"job\"><div class=\"zt\">" + (g.von ? esc(g.von) + "–" + esc(g.bis) : "ganztägig") + "</div><div class=\"t\">" + esc(g.t) + "</div>" + (g.o ? "<div class=\"k\">📍 " + esc(g.o) + "</div>" : "") +
         (g.mit && g.mit.length ? "<div class=\"k\">👥 " + esc(g.mit.join(", ")) + "</div>" : "") + (g.h ? "<div class=\"k\">ℹ️ " + esc(g.h) + "</div>" : "") + "</div>"; });
     if (!alle.some(function (g) { return g.d >= h0; })) h += "<div class=\"job\">Keine gespeicherten Termine ab heute.</div>";
-    h += "<div class=\"leiste\"><button id=\"p-neu\">🔄 Mit Internet neu laden</button></div>";
-    planEl.innerHTML = h; zeige(planEl);
-    document.getElementById("p-neu").onclick = starten;
+    h += "<div class=\"leiste\"><button id=\"p-neu\"></button></div>";
+    planEl.innerHTML = h; zeige(planEl); knopf();
   }
   zp.addEventListener("click", zeigePlan);
+  /* Schnellstart: Während die App lädt, kann der gespeicherte Plan sofort angesehen werden */
+  var lp = document.getElementById("lade-plan");
+  lp.addEventListener("click", zeigePlan);
+  function knopf() {
+    var b = document.getElementById("p-neu"); if (!b) return;
+    if (geladen) { b.textContent = "▶ Zur App"; b.disabled = false; b.onclick = function () { zeige(null); }; }
+    else if (app.src && navigator.onLine) { b.textContent = "⏳ App lädt noch … (gleich fertig)"; b.disabled = true; b.onclick = null; }
+    else { b.textContent = "🔄 Mit Internet neu laden"; b.disabled = false; b.onclick = starten; }
+  }
   function starten() {
     if (!navigator.onLine) { zeige(off); return; }
-    geladen = false; zeige(lade);
+    geladen = false; zeige(lade); lp.hidden = !gespeichert();
     document.getElementById("lade-txt").textContent = "Wird geladen …";
     app.src = APP_URL + (APP_URL.indexOf("?") < 0 ? "?" : "&") + "pwa=1";
     clearTimeout(zeit);
     zeit = setTimeout(function () { if (!geladen) document.getElementById("lade-txt").textContent = "Das dauert gerade länger … bitte kurz warten."; }, 12000);
   }
-  app.addEventListener("load", function () { if (!app.src) return; geladen = true; clearTimeout(zeit); zeige(null); });
+  app.addEventListener("load", function () { if (!app.src) return; geladen = true; clearTimeout(zeit);
+    if (!planEl.hidden) { knopf(); var b = document.getElementById("p-neu"); if (b) b.textContent = "✓ App bereit – öffnen"; return; }
+    zeige(null); });
   window.addEventListener("offline", function () { if (!geladen) zeige(off); });
   window.addEventListener("online", function () { if (!geladen) starten(); });
   document.getElementById("nochmal").addEventListener("click", starten);
