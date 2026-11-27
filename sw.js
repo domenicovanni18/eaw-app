@@ -1,6 +1,6 @@
 /* EAW Einsatzplan – Offline-Helfer: hält die Startseite und die Symbole bereit.
    Die eigentliche App kommt immer frisch von Google (wird hier nicht zwischengespeichert). */
-var CACHE = "eaw-app-v2";
+var CACHE = "eaw-app-v3";
 var DATEIEN = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png", "icon-512-maskable.png"];
 
 self.addEventListener("install", function (e) {
@@ -16,13 +16,13 @@ self.addEventListener("activate", function (e) {
 self.addEventListener("fetch", function (e) {
   var url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== self.location.origin) return; /* Google-App nicht anfassen */
-  e.respondWith(
-    fetch(e.request).then(function (r) {
-      var kopie = r.clone();
-      caches.open(CACHE).then(function (c) { c.put(e.request, kopie); });
-      return r;
-    }).catch(function () {
-      return caches.match(e.request).then(function (r) { return r || caches.match("index.html"); });
-    })
-  );
+  /* Schnellstart: gespeicherte Startseite sofort zeigen und im Hintergrund aktualisieren (auch bei schlechtem Netz) */
+  var netz = fetch(e.request).then(function (r) {
+    if (r && r.ok) { var kopie = r.clone(); caches.open(CACHE).then(function (c) { c.put(e.request, kopie); }); }
+    return r;
+  });
+  e.respondWith(caches.match(e.request).then(function (alt) {
+    if (alt) { e.waitUntil(netz.catch(function () {})); return alt; }
+    return netz.catch(function () { return caches.match("index.html"); });
+  }));
 });
